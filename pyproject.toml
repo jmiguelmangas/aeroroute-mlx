@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 [project]
 name = "aeroroute-mlx"
-version = "0.1.0"
+version = "0.2.0"
 requires-python = ">=3.12"
 dependencies = ["fastapi>=0.115", "uvicorn>=0.30"]
 [project.optional-dependencies]

@@ -1,27 +1,48 @@
 """Native explanation service; the deterministic solver is never invoked here."""
 
+from __future__ import annotations
+
+import os
+from pathlib import Path
+
 from fastapi import FastAPI
 
 from aeroroute_mlx.contracts import ExplanationRequest, ExplanationResponse
-from aeroroute_mlx.fallback import render_fallback
-from aeroroute_mlx.validator import validate_numeric_claims
-
-app = FastAPI(title="AeroRoute MLX", version="0.1.0")
-
-
-@app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok", "provider": "fallback"}
+from aeroroute_mlx.generation import GenerationSettings, generate_explanation
+from aeroroute_mlx.model import (
+    MlxLmProvider,
+    ModelManifest,
+    TextGenerationProvider,
+)
 
 
-@app.post("/v1/explanations", response_model=ExplanationResponse)
-def explain(request: ExplanationRequest) -> ExplanationResponse:
-    text = render_fallback(request.summary)
-    if not validate_numeric_claims(text, request.allowed_numeric_values):
-        text = "Deterministic explanation unavailable because numeric validation failed."
-    return ExplanationResponse(
-        contract_version=request.contract_version,
-        provider="template",
-        text=text,
-        fallback_used=True,
+def create_app(
+    provider: TextGenerationProvider | None = None,
+    settings: GenerationSettings = GenerationSettings(),
+) -> FastAPI:
+    application = FastAPI(title="AeroRoute MLX", version="0.2.0")
+
+    @application.get("/health")
+    def health() -> dict[str, str]:
+        return {
+            "status": "ok",
+            "provider": provider.name if provider is not None else "fallback",
+        }
+
+    @application.post("/v1/explanations", response_model=ExplanationResponse)
+    async def explain(request: ExplanationRequest) -> ExplanationResponse:
+        return await generate_explanation(request, provider, settings)
+
+    return application
+
+
+def provider_from_environment() -> TextGenerationProvider | None:
+    if os.getenv("AEROROUTE_MLX_ENABLED", "0") != "1":
+        return None
+    manifest_path = Path(
+        os.getenv("AEROROUTE_MLX_MODEL_MANIFEST", "model-manifest.json")
     )
+    return MlxLmProvider(ModelManifest.load(manifest_path))
+
+
+app = create_app(provider_from_environment())

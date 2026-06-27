@@ -1,0 +1,9 @@
+{
+  "application_context_limit": 4096,
+  "architecture": "gemma3_text",
+  "base_model": "mlx-community/gemma-3-text-4b-it-4bit",
+  "base_revision": "4f665a4c50ecfe4ecdc34056ab52fe3e3c4abf9e",
+  "local_path": "../models/gemma-3-text-4b-it-4bit",
+  "modality": "text",
+  "quantization": "mlx-4bit"
+}
