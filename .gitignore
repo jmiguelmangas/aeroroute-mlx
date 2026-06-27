@@ -5,3 +5,8 @@ __pycache__/
 dist/
 models/
 artifacts/
+model-manifest.json
+model-manifest.4b-smoke.json
+.DS_Store
+._*
+.AppleDouble/
