@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from dataclasses import dataclass
 
 from aeroroute_mlx.contracts import ExplanationRequest, ExplanationResponse
@@ -13,7 +14,10 @@ from aeroroute_mlx.prompt_builder import build_prompt
 from aeroroute_mlx.validator import (
     validate_numeric_claims,
     validate_operational_claims,
+    validate_text_length,
 )
+
+logger = logging.getLogger("aeroroute.mlx")
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,22 +42,47 @@ async def generate_explanation(
                 timeout=settings.timeout_s,
             )
             text = parse_structured_text(raw)
-            if validate_numeric_claims(
-                text, request.allowed_numeric_values
-            ) and validate_operational_claims(text):
+            if (
+                validate_numeric_claims(text, request.allowed_numeric_values)
+                and validate_operational_claims(text)
+                and validate_text_length(text)
+            ):
                 return ExplanationResponse(
                     contract_version=request.contract_version,
                     provider=provider.name,
                     text=text,
                     fallback_used=False,
                 )
-        except (Exception, asyncio.TimeoutError):
-            pass
+            _log_fallback(
+                provider.name,
+                "generated text failed output validation "
+                "(numeric claims, operational claims, or max length)",
+            )
+        except (Exception, asyncio.TimeoutError) as error:
+            # Previously a bare `except: pass` — a real bug (AppleDouble
+            # sidecar files breaking model load) was invisible for exactly
+            # this reason until someone bypassed this handler to debug it
+            # manually. Log the cause without changing fallback behavior.
+            _log_fallback(provider.name, f"{type(error).__name__}: {error}")
     return ExplanationResponse(
         contract_version=request.contract_version,
         provider="template",
         text=render_fallback(request.summary),
         fallback_used=True,
+    )
+
+
+def _log_fallback(provider_name: str, reason: str) -> None:
+    logger.warning(
+        json.dumps(
+            {
+                "event": "mlx_generation_fallback",
+                "provider": provider_name,
+                "reason": reason,
+            },
+            separators=(",", ":"),
+            sort_keys=True,
+        )
     )
 
 

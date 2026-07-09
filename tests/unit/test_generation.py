@@ -1,9 +1,12 @@
+import json
+import logging
 import time
 
 from fastapi.testclient import TestClient
 
 from aeroroute_mlx.generation import GenerationSettings
 from aeroroute_mlx.main import create_app
+from aeroroute_mlx.validator import MAX_EXPLANATION_TEXT_LENGTH
 
 
 class FakeProvider:
@@ -75,3 +78,22 @@ def test_timeout_falls_back() -> None:
     )
 
     assert payload["provider"] == "template"
+
+
+def test_overlong_text_falls_back() -> None:
+    overlong = "x" * (MAX_EXPLANATION_TEXT_LENGTH + 1)
+    payload = _request(FakeProvider(json.dumps({"text": overlong})))
+
+    assert payload["provider"] == "template"
+    assert payload["fallback_used"] is True
+
+
+def test_fallback_logs_the_cause(caplog) -> None:
+    with caplog.at_level(logging.WARNING, logger="aeroroute.mlx"):
+        _request(FakeProvider("not json"))
+
+    records = [r for r in caplog.records if r.name == "aeroroute.mlx"]
+    assert records, "expected a fallback log line from aeroroute.mlx"
+    payload = json.loads(records[-1].message)
+    assert payload["event"] == "mlx_generation_fallback"
+    assert "ValueError" in payload["reason"]
