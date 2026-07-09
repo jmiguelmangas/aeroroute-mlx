@@ -7,7 +7,13 @@ version = "0.2.0"
 requires-python = ">=3.12"
 dependencies = ["fastapi>=0.115", "uvicorn>=0.30"]
 [project.optional-dependencies]
-mlx = ["mlx-lm"]
+# transformers==5.13.0 has a real regression: mlx-lm's custom tokenizer
+# registration crashes with `AttributeError: 'str' object has no attribute
+# '__module__'` inside AutoTokenizer.register. Pin below that until fixed
+# upstream; this lock currently predates 5.13.0's release, so `uv sync`
+# stays safe today but a future `uv lock --upgrade` would hit the bug
+# without this pin.
+mlx = ["mlx-lm", "transformers<5.13.0"]
 [dependency-groups]
 dev = ["httpx>=0.28", "pytest>=8.0", "ruff>=0.11"]
 [tool.ruff]
