@@ -13,7 +13,10 @@ dependencies = ["fastapi>=0.115", "uvicorn>=0.30"]
 # upstream; this lock currently predates 5.13.0's release, so `uv sync`
 # stays safe today but a future `uv lock --upgrade` would hit the bug
 # without this pin.
-mlx = ["mlx-lm", "transformers<5.13.0"]
+# mlx-lm is bounded to the 0.31.x series currently installed and verified
+# working; it has no stability guarantees across minor versions, so leaving
+# it unbounded risks the same class of silent-break-on-resolve as above.
+mlx = ["mlx-lm>=0.31,<0.32", "transformers<5.13.0"]
 [dependency-groups]
 dev = ["httpx>=0.28", "pytest>=8.0", "ruff>=0.11"]
 [tool.ruff]
